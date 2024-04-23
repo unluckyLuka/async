@@ -5,37 +5,29 @@ const API = {
     buhForms: "/api3/buh",
 };
 
-function run() {
-    sendRequest(API.organizationList, (orgOgrns) => {
-        const ogrns = orgOgrns.join(",");
-        sendRequest(`${API.orgReqs}?ogrn=${ogrns}`, (requisites) => {
-            const orgsMap = reqsToMap(requisites);
-            sendRequest(`${API.analytics}?ogrn=${ogrns}`, (analytics) => {
-                addInOrgsMap(orgsMap, analytics, "analytics");
-                sendRequest(`${API.buhForms}?ogrn=${ogrns}`, (buh) => {
-                    addInOrgsMap(orgsMap, buh, "buhForms");
-                    render(orgsMap, orgOgrns);
-                });
-            });
-        });
-    });
+async function run() {
+    const ogrOgrns = (await sendRequest(API.organizationList));
+    const ogrns = ogrOgrns.join(",");
+    const [reqs, analytics, buh] = await Promise.all(
+        [
+            sendRequest(`${API.orgReqs}?ogrn=${ogrns}`),
+            sendRequest(`${API.analytics}?ogrn=${ogrns}`),
+            sendRequest(`${API.buhForms}?ogrn=${ogrns}`)]);
+    const orgsMap = reqsToMap(reqs);
+    addInOrgsMap(orgsMap, analytics, "analytics");
+    addInOrgsMap(orgsMap, buh, "buhForms");
+    render(orgsMap, ogrOgrns);
 }
 
 run();
 
-function sendRequest(url, callback) {
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", url, true);
-
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            if (xhr.status === 200) {
-                callback(JSON.parse(xhr.response));
-            }
-        }
-    };
-
-    xhr.send();
+async function sendRequest(url, callback) {
+    let response = await fetch(url);
+    if (!response.ok) {
+        alert(`${response.status} - ${response.statusText}`);
+    } else {
+        return await response.json();
+    }
 }
 
 function reqsToMap(requisites) {
@@ -86,7 +78,7 @@ function renderOrganization(orgInfo, template, container) {
                 orgInfo.buhForms[orgInfo.buhForms.length - 1].form2[0] &&
                 orgInfo.buhForms[orgInfo.buhForms.length - 1].form2[0]
                     .endValue) ||
-                0
+            0
         );
     } else {
         money.textContent = "—";
@@ -105,10 +97,10 @@ function formatMoney(money) {
     const rounded = money.toFixed(0);
     const numLen = rounded.length;
     for (let i = numLen - 3; i > 0; i -= 3) {
-        formatted = `${formatted.slice(0, i)} ${formatted.slice(i)}`;
+        formatted = `${formatted.slice(0, i)} ${formatted.slice(i)}`;
     }
 
-    return `${formatted} ₽`;
+    return `${formatted} ₽`;
 }
 
 function createAddress(address) {
